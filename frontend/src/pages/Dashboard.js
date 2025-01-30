@@ -1,3 +1,4 @@
+// src/pages/Dashboard.js
 import React, { useEffect, useState } from "react";
 import axiosInstance from "../api/axiosInstance";
 import ExpenseCard from "../components/ExpenseCard";
@@ -8,7 +9,6 @@ function Dashboard() {
   useEffect(() => {
     const fetchExpenses = async () => {
       try {
-        // Example GET request to FastAPI: GET /expenses
         const response = await axiosInstance.get("/expenses");
         setExpenses(response.data);
       } catch (error) {
@@ -19,11 +19,13 @@ function Dashboard() {
   }, []);
 
   return (
-    <div className="p-4">
+    <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
-      {expenses.map((expense) => (
-        <ExpenseCard key={expense.id} expense={expense} />
-      ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {expenses.map((expense) => (
+          <ExpenseCard key={expense.id} expense={expense} />
+        ))}
+      </div>
     </div>
   );
 }
