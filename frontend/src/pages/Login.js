@@ -10,11 +10,18 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axiosInstance.post("/users/login", { email, password });
-      if (response.data.token) {
-        localStorage.setItem("token", response.data.token);
+      const formData = new URLSearchParams();
+      formData.append("username", email); // Change email → username
+      formData.append("password", password);
+  
+      const response = await axiosInstance.post("/login", formData, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+  
+      if (response.data.access_token) {
+        localStorage.setItem("token", response.data.access_token);
         alert("Logged in successfully!");
-        navigate("/dashboard"); // redirect to dashboard
+        navigate("/dashboard");
       } else {
         alert(response.data.message || "Invalid credentials");
       }
@@ -22,7 +29,7 @@ function Login() {
       console.error("Login error:", error);
       alert("Error logging in. Check console for details.");
     }
-  };
+  };  
 
   return (
     <div className="flex justify-center items-center min-h-screen">

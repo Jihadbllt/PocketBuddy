@@ -9,11 +9,22 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI()
+
+# Enable CORS (Fix CORS Headers)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  
+    allow_credentials=True,
+    allow_methods=["*"],  
+    allow_headers=["*"],  
+)
+
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -27,8 +38,8 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 # JWT authentication setup with validation
-SECRET_KEY = os.getenv("SECRET_KEY")
-REFRESH_SECRET_KEY = os.getenv("REFRESH_SECRET_KEY")
+SECRET_KEY = str(os.getenv("SECRET_KEY", "fallback_secret"))
+REFRESH_SECRET_KEY = str(os.getenv("REFRESH_SECRET_KEY", "fallback_refresh_secret"))
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
@@ -59,6 +70,7 @@ def get_db():
     finally:
         db.close()
 
+# User authentication
 def get_current_user(token: HTTPAuthorizationCredentials = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
@@ -74,6 +86,7 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(oauth2_scheme
     except JWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
+# API Routes
 @app.get("/")
 def home():
     return {"message": "Welcome to PocketBuddy API"}
@@ -102,9 +115,14 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
+# Fix login request: Handle both "email" and "username"
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == form_data.username).first()
+    # Check if username is an email or a username
+    user = db.query(models.User).filter(
+        (models.User.username == form_data.username) | (models.User.email == form_data.username)
+    ).first()
+
     if not user or not verify_password(form_data.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -112,6 +130,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     refresh_token = create_refresh_token(data={"sub": user.username})
 
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
 
 @app.post("/refresh")
 def refresh_token(refresh_token: str, db: Session = Depends(get_db)):

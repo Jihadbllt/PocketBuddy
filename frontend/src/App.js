@@ -1,4 +1,3 @@
-// src/App.js
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
@@ -7,25 +6,19 @@ import AddExpense from "./pages/AddExpense";
 import Analytics from "./pages/Analytics";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Profile from "./pages/Profile"; 
 
 // Simple protected route check
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-  return children;
+  return token ? children : <Navigate to="/login" replace />;
 }
 
 function App() {
   return (
     <Router>
-      {/* 
-        We'll show the Navbar for pages after login. 
-        You could also do a condition: 
-          if there's a token => <Navbar />, else no navbar 
-      */}
-      <Navbar />
+      {/* Show Navbar only when user is logged in */}
+      {localStorage.getItem("token") && <Navbar />}
 
       <div className="min-h-screen bg-gray-100 p-4">
         <Routes>
@@ -36,7 +29,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Protected pages use <ProtectedRoute> */}
+          {/* Protected pages */}
           <Route
             path="/dashboard"
             element={
@@ -58,6 +51,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Analytics />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />

@@ -1,10 +1,9 @@
-// src/pages/Register.js
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../api/axiosInstance";
 
 function Register() {
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ username: "", email: "", password: "" });
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -14,17 +13,24 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axiosInstance.post("/users/register", form);
-      alert(response.data.message);
+      const response = await axiosInstance.post("/users/", form);
+      
+      alert("Registration successful! You can now log in.");
+  
       if (response.data.id) {
         navigate("/login");
       }
     } catch (error) {
       console.error("Registration error:", error);
-      alert("Error registering.");
+      
+      if (error.response && error.response.data && error.response.data.detail) {
+        alert(`Error: ${error.response.data.detail}`);
+      } else {
+        alert("Error registering. Please try again.");
+      }
     }
   };
-
+  
   return (
     <div className="flex justify-center items-center min-h-screen">
       <div className="bg-white p-8 rounded-lg shadow max-w-md w-full">
@@ -34,7 +40,7 @@ function Register() {
             <label className="block mb-1 font-medium">Name</label>
             <input
               type="text"
-              name="name"
+              name="username"
               className="w-full p-2 border border-gray-300 rounded"
               value={form.name}
               onChange={handleChange}

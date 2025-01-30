@@ -1,30 +1,47 @@
-// src/pages/Dashboard.js
 import React, { useEffect, useState } from "react";
 import axiosInstance from "../api/axiosInstance";
-import ExpenseCard from "../components/ExpenseCard";
+import { useNavigate } from "react-router-dom";
 
 function Dashboard() {
-  const [expenses, setExpenses] = useState([]);
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchExpenses = async () => {
+    const fetchUser = async () => {
       try {
-        const response = await axiosInstance.get("/expenses");
-        setExpenses(response.data);
+        const token = localStorage.getItem("token");
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        const response = await axiosInstance.get("/users/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setUser(response.data);
       } catch (error) {
-        console.error("Failed to fetch expenses:", error);
+        console.error("Error fetching user:", error);
+        localStorage.removeItem("token");
+        navigate("/login");
       }
     };
-    fetchExpenses();
-  }, []);
+
+    fetchUser();
+  }, [navigate]);
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {expenses.map((expense) => (
-          <ExpenseCard key={expense.id} expense={expense} />
-        ))}
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="bg-white p-8 rounded-lg shadow max-w-md w-full">
+        <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+        {user ? (
+          <div>
+            <p><strong>Username:</strong> {user.username}</p>
+            <p><strong>Email:</strong> {user.email}</p>
+          </div>
+        ) : (
+          <p>Loading user data...</p>
+        )}
       </div>
     </div>
   );
