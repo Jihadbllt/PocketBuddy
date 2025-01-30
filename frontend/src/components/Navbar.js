@@ -1,21 +1,40 @@
+// src/components/Navbar.js
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 function Navbar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Hide the navbar on login/register routes
+  if (location.pathname === "/login" || location.pathname === "/register") {
+    return null;
+  }
+
   const handleLogout = () => {
     localStorage.removeItem("token");
-    alert("Logged out!");
-    // Optionally force refresh or navigate
+    navigate("/login");
   };
 
   return (
-    <nav className="bg-blue-500 p-4 text-white flex space-x-4">
-      <Link className="font-bold text-xl" to="/">PocketBuddy</Link>
-      <Link to="/add" className="hover:text-gray-200">Add Expense</Link>
-      <Link to="/analytics" className="hover:text-gray-200">Analytics</Link>
-      <Link to="/login" className="ml-auto hover:text-gray-200">Login</Link>
-      <Link to="/register" className="hover:text-gray-200">Register</Link>
-      <button onClick={handleLogout} className="hover:text-gray-200">Logout</button>
+    <nav className="bg-blue-500 text-white px-8 py-4 flex items-center">
+      <Link to="/dashboard" className="text-xl font-bold">
+        PocketBuddy
+      </Link>
+      <div className="ml-auto flex space-x-4">
+        <Link to="/add" className="hover:text-gray-200 transition">
+          Add Expense
+        </Link>
+        <Link to="/analytics" className="hover:text-gray-200 transition">
+          Analytics
+        </Link>
+        <button
+          onClick={handleLogout}
+          className="hover:text-gray-200 transition"
+        >
+          Logout
+        </button>
+      </div>
     </nav>
   );
 }
