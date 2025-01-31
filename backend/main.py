@@ -8,7 +8,7 @@ import models, schemas
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -151,6 +151,12 @@ def add_expense(expense: schemas.ExpenseCreate, current_user: models.User = Depe
     db.refresh(new_expense)
 
     return {"message": "Expense added successfully", "remaining_budget": float(current_user.budget), "expense": new_expense}
+
+# **NEW: Get All Expenses for the Current User**
+@app.get("/expenses/", response_model=List[schemas.ExpenseResponse])
+def get_expenses(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    expenses = db.query(models.Expense).filter(models.Expense.user_id == current_user.id).all()
+    return expenses
 
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
