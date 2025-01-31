@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Security
 from sqlalchemy.orm import Session
@@ -11,18 +12,19 @@ from typing import Optional
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 app = FastAPI()
 
-# Enable CORS (Fix CORS Headers)
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],  
     allow_credentials=True,
     allow_methods=["*"],  
     allow_headers=["*"],  
+    expose_headers=["*"],  
 )
 
 # Ensure MySQL tables are created
@@ -37,16 +39,12 @@ def hash_password(password: str):
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
-# JWT authentication setup with validation
+# JWT authentication setup
 SECRET_KEY = str(os.getenv("SECRET_KEY", "fallback_secret"))
 REFRESH_SECRET_KEY = str(os.getenv("REFRESH_SECRET_KEY", "fallback_refresh_secret"))
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
-
-# Ensure that SECRET_KEY and REFRESH_SECRET_KEY are properly set
-if not SECRET_KEY or not REFRESH_SECRET_KEY:
-    raise ValueError("❌ ERROR: SECRET_KEY and REFRESH_SECRET_KEY must be set in .env file!")
 
 oauth2_scheme = HTTPBearer()
 
@@ -98,7 +96,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     hashed_password = hash_password(user.password)
-    db_user = models.User(username=user.username, email=user.email, password=hashed_password)
+    db_user = models.User(username=user.username, email=user.email, password=hashed_password, budget=Decimal("0"))
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -115,10 +113,47 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-# Fix login request: Handle both "email" and "username"
+# Get User Budget
+@app.get("/budget/")
+def get_budget(current_user: models.User = Depends(get_current_user)):
+    return {"budget": float(current_user.budget)}
+
+# Update Budget (Fixing Decimal Conversion)
+@app.put("/set-budget/")
+def set_budget(
+    budget_update: schemas.BudgetUpdate, 
+    current_user: models.User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    if budget_update.budget < 0:
+        raise HTTPException(status_code=400, detail="Budget cannot be negative")
+
+    current_user.budget = Decimal(str(budget_update.budget))
+    db.commit()
+    db.refresh(current_user)
+    return {"message": "Budget updated successfully", "new_budget": float(current_user.budget)}
+
+# Add Expense (Deduct from Budget)
+@app.post("/expenses/")
+def add_expense(expense: schemas.ExpenseCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if float(current_user.budget) < expense.amount:
+        raise HTTPException(status_code=400, detail="Not enough budget!")
+
+    # Deduct expense from user's budget
+    current_user.budget = Decimal(str(current_user.budget)) - Decimal(str(expense.amount))
+    db.commit()
+    db.refresh(current_user)
+
+    # Create new expense record
+    new_expense = models.Expense(**expense.dict(), user_id=current_user.id)
+    db.add(new_expense)
+    db.commit()
+    db.refresh(new_expense)
+
+    return {"message": "Expense added successfully", "remaining_budget": float(current_user.budget), "expense": new_expense}
+
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # Check if username is an email or a username
     user = db.query(models.User).filter(
         (models.User.username == form_data.username) | (models.User.email == form_data.username)
     ).first()
@@ -130,7 +165,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     refresh_token = create_refresh_token(data={"sub": user.username})
 
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
-
 
 @app.post("/refresh")
 def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
