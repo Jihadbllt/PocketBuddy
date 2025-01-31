@@ -25,7 +25,7 @@ app.add_middleware(
     allow_headers=["*"],  
 )
 
-
+# Ensure MySQL tables are created
 models.Base.metadata.create_all(bind=engine)
 
 # Password hashing
